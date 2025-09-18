@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"/>
+  <title>Marcela & Alana — Sintonize nossa vibe 🎶</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <style>
+    html, body { margin:0; height:100%; background:#000; font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .ui { position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; background: radial-gradient(1200px 500px at 50% 100%, rgba(0,0,0,.55), rgba(0,0,0,.9)); z-index: 10; color: #fff; text-align: center; padding: 24px; }
+    .ui.hidden { display:none; }
+    .card { max-width: 420px; width: 92%; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 18px; backdrop-filter: blur(6px); box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+    .title { font-weight: 700; font-size: 1.1rem; margin-bottom: 8px; }
+    .btn { margin-top: 12px; padding: 12px 16px; border: 0; border-radius: 12px; background: #21d4a3; color:#071b16; font-weight: 700; font-size:1rem; width: 100%; }
+    .hint { font-size: .9rem; opacity: .85; line-height: 1.35; }
+    .badge { display:inline-block; padding:4px 10px; border-radius: 999px; background:#0df; color:#002; font-weight:700; font-size:.8rem; margin-bottom:10px; }
+    .watermark { position: fixed; left: 12px; bottom: 10px; color:#9be8dc; font-weight:700; font-size:.9rem; letter-spacing:.2px; opacity:.9; z-index:5; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+  </style>
+</head>
+<body>
+  <div id="overlay" class="ui">
+    <div class="card">
+      <div class="badge">Sintonize nossa vibe 🎶</div>
+      <div class="title">Aponte a câmera para o marcador da pulseira</div>
+      <div class="hint">Toque em “Abrir câmera” para começar.<br/>Depois gere o seu targets/bracelet.mind e troque o caminho no index.</div>
+      <button id="startBtn" class="btn">Abrir câmera</button>
+    </div>
+  </div>
+  <div class="watermark">Marcela & Alana — 16</div>
+
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets/bracelet.mind; filterMinCF:0.0001; filterBeta:0.001; maxTrack:1"
+
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+    renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, alpha:true"
+    embedded>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    <a-assets timeout="120000">
+      <video id="clip" src="./assets/clipe.mp4" preload="auto" webkit-playsinline playsinline muted loop></video>
+    </a-assets>
+    <a-entity mindar-image-target="targetIndex: 0">
+      <a-video id="videoPlane" src="#clip" width="0.18" height="0.32" position="0 0 0.02" rotation="-90 0 0" material="shader: standard; transparent: true"></a-video>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    const overlay = document.getElementById('overlay');
+    const startBtn = document.getElementById('startBtn');
+    const video = document.getElementById('clip');
+    startBtn.addEventListener('click', async () => { try { await video.play(); } catch(e) {} overlay.classList.add('hidden'); });
+    document.addEventListener('click', () => { if (video.muted) { video.muted = false; video.play().catch(()=>{}); } });
+  </script>
+</body>
+</html>
