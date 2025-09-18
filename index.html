@@ -4,8 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"/>
   <title>Marcela & Alana — Sintonize nossa vibe 🎶</title>
+
+  <!-- A-Frame + MindAR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
   <style>
     html, body { margin:0; height:100%; background:#000; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
     .ui { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
@@ -23,20 +26,22 @@
   </style>
 </head>
 <body>
+  <!-- Overlay / instruções -->
   <div id="overlay" class="ui">
     <div class="card">
       <div class="badge">Sintonize nossa vibe 🎶</div>
       <div class="title">Aponte a câmera para o marcador</div>
       <div class="hint">
         Toque em “Abrir câmera”. Se não pedir permissão, toque no cadeado da barra de endereço e <b>permita a câmera</b>.<br/>
-        Se o arquivo <code>targets/bracelet.mind</code> não existir, usamos um alvo de teste automaticamente.
+        Se <code>targets/bracelet.mind</code> não existir, abriremos um marcador de teste automaticamente.
       </div>
       <button id="startBtn" class="btn">Abrir câmera</button>
     </div>
   </div>
+
   <div class="watermark">Marcela & Alana — 16</div>
 
-  <!-- Cena sem atributo mindar-image; definimos via JS após verificar o .mind -->
+  <!-- Cena (sem mindar-image; definimos via JS após checar o .mind) -->
   <a-scene id="scene"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
@@ -45,16 +50,20 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-assets timeout="120000">
+      <!-- Altere o vídeo em ./assets/clipe.mp4 (H.264/AAC). Se for vertical 9:16, ajuste width/height no a-video. -->
       <video id="clip" src="./assets/clipe.mp4" preload="auto" webkit-playsinline playsinline muted loop></video>
     </a-assets>
 
     <a-entity id="target" mindar-image-target="targetIndex: 0">
-      <!-- 16:9 horizontal, em pé, material flat e dupla face, levemente acima -->
-      <a-video src="#clip"
-         width="0.32" height="0.18"
-         position="0 0 0.05" rotation="0 0 0"
-         material="shader: flat; side: double"></a-video>
-
+      <!-- 16:9 horizontal, material flat, dupla face, um pouco acima do alvo -->
+      <a-video
+        id="videoPlane"
+        src="#clip"
+        width="0.32" height="0.18"
+        position="0 0 0.05"
+        rotation="0 0 0"
+        material="shader: flat; side: double">
+      </a-video>
     </a-entity>
   </a-scene>
 
@@ -64,10 +73,28 @@
     const video = document.getElementById('clip');
     const scene = document.getElementById('scene');
 
+    // Caminhos do alvo (.mind)
     const LOCAL_MIND = './targets/bracelet.mind';
     const FALLBACK_MIND = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/samples/assets/card-example/card.mind';
     const FALLBACK_MARKER = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/samples/assets/card-example/card.png';
 
+    // 1) Força o pedido de permissão da CÂMERA (Android/iOS)
+    async function ensureCameraPermission() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false
+        });
+        // já liberou; fecha o stream (MindAR abrirá depois)
+        stream.getTracks().forEach(t => t.stop());
+        return true;
+      } catch (e) {
+        alert('Não consegui abrir a câmera.\nNo Chrome: toque no cadeado → Permissões → Câmera: Permitir. Depois recarregue.');
+        return false;
+      }
+    }
+
+    // 2) Checa se o .mind local existe; se não, usa o de exemplo
     async function chooseMind() {
       try {
         const res = await fetch(LOCAL_MIND, { method: 'HEAD', cache: 'no-store' });
@@ -76,31 +103,47 @@
       return { url: FALLBACK_MIND, isFallback: true };
     }
 
+    // Botão principal
     startBtn.addEventListener('click', async () => {
-      // começar mídia (política móvel)
-      try { await video.play(); } catch (e) {}
+      // a) Permissão de câmera
+      const ok = await ensureCameraPermission();
+      if (!ok) return;
+
+      // b) Define dinamicamente o target (.mind)
+      const picked = await chooseMind();
+      scene.setAttribute(
+        'mindar-image',
+        `imageTargetSrc: ${picked.url}; filterMinCF:0.0001; filterBeta:0.001; maxTrack:1`
+      );
+
+      // c) Inicia o vídeo (muted) e fecha overlay
+      try { await video.play(); } catch(e) {}
       overlay.classList.add('hidden');
 
-      // definir alvo (.mind) dinamicamente
-      const picked = await chooseMind();
-      scene.setAttribute('mindar-image',
-        `imageTargetSrc: ${picked.url}; filterMinCF:0.0001; filterBeta:0.001; maxTrack:1`);
-
+      // d) Se caiu no fallback, abre o marcador de teste em nova aba
       if (picked.isFallback) {
-        // Se caiu no fallback, abre o marcador de teste em nova aba para você apontar
         setTimeout(() => window.open(FALLBACK_MARKER, '_blank'), 600);
       }
     });
 
-    // 1º toque desmuta áudio
+    // Primeiro toque desmuta o áudio (regras mobile)
     document.addEventListener('click', () => {
       if (video.muted) {
         video.muted = false;
         video.play().catch(()=>{});
       }
     });
+
+    // Mensagens úteis do MindAR
+    scene.addEventListener('arError', () => {
+      alert('Falha ao iniciar AR. Abra no Chrome/Safari e permita a câmera no cadeado. Feche outros apps que usam a câmera (WhatsApp/Meet/Câmera).');
+    });
+    scene.addEventListener('arReady', () => {
+      console.log('MindAR pronto');
+    });
   </script>
 </body>
 </html>
+
 
 
