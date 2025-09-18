@@ -31,17 +31,28 @@
 
   <a-scene
     mindar-image="imageTargetSrc: ./targets/bracelet.mind; filterMinCF:0.0001; filterBeta:0.001; maxTrack:1"
-
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
     renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, alpha:true"
     embedded>
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
     <a-assets timeout="120000">
+      <!-- se o áudio não sair, toque na tela uma vez (política iOS/Android) -->
       <video id="clip" src="./assets/clipe.mp4" preload="auto" webkit-playsinline playsinline muted loop></video>
     </a-assets>
+
     <a-entity mindar-image-target="targetIndex: 0">
-      <a-video id="videoPlane" src="#clip" width="0.18" height="0.32" position="0 0 0.02" rotation="-90 0 0" material="shader: standard; transparent: true"></a-video>
+      <!-- 16:9, de pé, material flat e dupla face, levemente acima do alvo -->
+      <a-video
+        id="videoPlane"
+        src="#clip"
+        width="0.32"
+        height="0.18"
+        position="0 0 0.05"
+        rotation="0 0 0"
+        material="shader: flat; side: double">
+      </a-video>
     </a-entity>
   </a-scene>
 
@@ -49,8 +60,20 @@
     const overlay = document.getElementById('overlay');
     const startBtn = document.getElementById('startBtn');
     const video = document.getElementById('clip');
-    startBtn.addEventListener('click', async () => { try { await video.play(); } catch(e) {} overlay.classList.add('hidden'); });
-    document.addEventListener('click', () => { if (video.muted) { video.muted = false; video.play().catch(()=>{}); } });
+
+    startBtn.addEventListener('click', async () => {
+      try { await video.play(); } catch(e) {}
+      overlay.classList.add('hidden');
+    });
+
+    // liberar áudio após 1 toque
+    document.addEventListener('click', () => {
+      if (video.muted) {
+        video.muted = false;
+        video.play().catch(()=>{});
+      }
+    });
   </script>
 </body>
 </html>
+
