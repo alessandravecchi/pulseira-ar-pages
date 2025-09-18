@@ -53,15 +53,15 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-assets timeout="120000">
-      <!-- Se o vídeo for vertical 9:16, depois troque a geometria abaixo para width:0.18; height:0.32 -->
+      <!-- Se o vídeo for 9:16 o script troca a geometria automaticamente -->
       <video id="clip" src="./assets/clipe.mp4" crossorigin="anonymous"
              preload="auto" webkit-playsinline playsinline muted loop></video>
     </a-assets>
 
     <a-entity id="target" mindar-image-target="targetIndex: 0">
-      <!-- Usamos a-plane com textura de vídeo (mais compatível que <a-video> em alguns Androids) -->
+      <!-- MAIOR: 0.60 × 0.34 (16:9). O script ajusta para 0.34 × 0.60 se o clipe for vertical. -->
       <a-plane id="videoPlane"
-        geometry="width: 0.32; height: 0.18"
+        geometry="width: 0.60; height: 0.34"
         position="0 0 0.05"
         rotation="0 0 0"
         material="src: #clip; shader: flat; side: double">
@@ -76,13 +76,24 @@
     const scene = document.getElementById('scene');
     const targetEntity = document.getElementById('target');
     const statusEl = document.getElementById('status');
+    const plane = document.getElementById('videoPlane');
 
     // Caminhos do alvo (.mind)
     const LOCAL_MIND = './targets/bracelet.mind';
     const FALLBACK_MIND = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/samples/assets/card-example/card.mind';
     const FALLBACK_MARKER = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/samples/assets/card-example/card.png';
 
-    // 1) Força o pedido de permissão da CÂMERA
+    // Detecta proporção do vídeo e ajusta a geometria (mantém o tamanho MAIOR)
+    video.addEventListener('loadedmetadata', () => {
+      const isVertical = video.videoHeight > video.videoWidth;
+      if (isVertical) {
+        plane.setAttribute('geometry', 'width: 0.34; height: 0.60'); // 9:16 grande
+      } else {
+        plane.setAttribute('geometry', 'width: 0.60; height: 0.34'); // 16:9 grande
+      }
+    });
+
+    // 1) Permissão de câmera
     async function ensureCameraPermission() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -111,21 +122,17 @@
 
     // Botão principal
     startBtn.addEventListener('click', async () => {
-      // a) Permissão de câmera
       const ok = await ensureCameraPermission();
       if (!ok) return;
 
-      // b) Define dinamicamente o target (.mind)
       const picked = await chooseMind();
       scene.setAttribute('mindar-image',
         `imageTargetSrc: ${picked.url}; filterMinCF:0.0001; filterBeta:0.001; maxTrack:1`
       );
 
-      // c) Inicia o vídeo (muted) e fecha overlay
       try { await video.play(); } catch(e) {}
       overlay.classList.add('hidden');
 
-      // d) Se caiu no fallback, abre o marcador de teste em nova aba
       if (picked.isFallback) {
         setTimeout(() => window.open(FALLBACK_MARKER, '_blank'), 600);
       }
@@ -149,6 +156,7 @@
   </script>
 </body>
 </html>
+
 
 
 
