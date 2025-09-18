@@ -25,10 +25,6 @@
     .watermark { position:fixed; left:12px; bottom:10px; color:#9be8dc; font-weight:700; font-size:.9rem; letter-spacing:.2px; opacity:.9; z-index:5; text-shadow:0 2px 10px rgba(0,0,0,.5); }
     .status { position:fixed; right:12px; bottom:10px; z-index:11;
       background:rgba(0,0,0,.55); color:#9be8dc; padding:8px 10px; border-radius:10px; font-weight:700; }
-
-    /* Controles +/− de tamanho */
-    .sizebar{position:fixed;top:12px;right:12px;z-index:11;display:flex;gap:8px}
-    .sizebar button{padding:8px 10px;border-radius:10px;border:0;background:#21d4a3;color:#071b16;font-weight:700}
   </style>
 </head>
 <body>
@@ -38,7 +34,7 @@
       <div class="badge">Sintonize nossa vibe 🎶</div>
       <div class="title">Aponte a câmera para o marcador</div>
       <div class="hint">
-        Toque em “Abrir câmera”. Se não pedir permissão, use o ícone ao lado da URL e <b>permita a câmera</b>.<br/>
+        Toque em “Abrir câmera”. Se não pedir permissão, toque no ícone ao lado da URL e <b>permita a câmera</b>.<br/>
         Se <code>targets/bracelet.mind</code> não existir, abriremos um marcador de teste automaticamente.
       </div>
       <button id="startBtn" class="btn">Abrir câmera</button>
@@ -47,12 +43,6 @@
 
   <div class="watermark">Marcela & Alana — 16</div>
   <div id="status" class="status">Procurando marcador…</div>
-
-  <!-- Botões de tamanho -->
-  <div class="sizebar">
-    <button id="smaller">–</button>
-    <button id="bigger">+</button>
-  </div>
 
   <!-- Cena (sem mindar-image; definimos via JS após checar o .mind) -->
   <a-scene id="scene"
@@ -63,15 +53,15 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-assets timeout="120000">
-      <!-- Mantenha o vídeo em H.264/AAC. Se for 9:16, ajustamos automaticamente. -->
+      <!-- Se o vídeo for vertical 9:16, depois troque a geometria abaixo para width:0.18; height:0.32 -->
       <video id="clip" src="./assets/clipe.mp4" crossorigin="anonymous"
              preload="auto" webkit-playsinline playsinline muted loop></video>
     </a-assets>
 
     <a-entity id="target" mindar-image-target="targetIndex: 0">
-      <!-- Usamos a-plane com textura de vídeo: mais compatível que <a-video> em alguns Androids -->
+      <!-- Usamos a-plane com textura de vídeo (mais compatível que <a-video> em alguns Androids) -->
       <a-plane id="videoPlane"
-        geometry="width: 0.32; height: 0.18"  <!-- base 16:9; será recalculado pelo JS -->
+        geometry="width: 0.32; height: 0.18"
         position="0 0 0.05"
         rotation="0 0 0"
         material="src: #clip; shader: flat; side: double">
@@ -86,32 +76,13 @@
     const scene = document.getElementById('scene');
     const targetEntity = document.getElementById('target');
     const statusEl = document.getElementById('status');
-    const plane = document.getElementById('videoPlane');
 
     // Caminhos do alvo (.mind)
     const LOCAL_MIND = './targets/bracelet.mind';
     const FALLBACK_MIND = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/samples/assets/card-example/card.mind';
     const FALLBACK_MARKER = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/samples/assets/card-example/card.png';
 
-    // Tamanho base (ajustaremos ao carregar os metadados do vídeo)
-    let baseW = 0.32, baseH = 0.18; // 16:9
-    let scale = 1.7;                // começa maior (1.0 = base)
-
-    function applySize() {
-      plane.setAttribute('geometry', `width: ${(baseW*scale).toFixed(3)}; height: ${(baseH*scale).toFixed(3)}`);
-    }
-
-    // Se o clipe for vertical (9:16), invertemos a base
-    video.addEventListener('loadedmetadata', () => {
-      if (video.videoHeight > video.videoWidth) {
-        baseW = 0.18; baseH = 0.32; // 9:16
-      } else {
-        baseW = 0.32; baseH = 0.18; // 16:9
-      }
-      applySize();
-    });
-
-    // 1) Permissão de câmera
+    // 1) Força o pedido de permissão da CÂMERA
     async function ensureCameraPermission() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -138,24 +109,23 @@
     targetEntity.addEventListener('targetFound', () => { if (statusEl) statusEl.textContent = 'Alvo detectado ✅'; });
     targetEntity.addEventListener('targetLost',  () => { if (statusEl) statusEl.textContent = 'Procurando marcador…'; });
 
-    // Controles de tamanho
-    document.getElementById('bigger').onclick = () => { scale = Math.min(3, scale + 0.1); applySize(); };
-    document.getElementById('smaller').onclick = () => { scale = Math.max(0.4, scale - 0.1); applySize(); };
-
     // Botão principal
     startBtn.addEventListener('click', async () => {
+      // a) Permissão de câmera
       const ok = await ensureCameraPermission();
       if (!ok) return;
 
+      // b) Define dinamicamente o target (.mind)
       const picked = await chooseMind();
-      scene.setAttribute(
-        'mindar-image',
+      scene.setAttribute('mindar-image',
         `imageTargetSrc: ${picked.url}; filterMinCF:0.0001; filterBeta:0.001; maxTrack:1`
       );
 
+      // c) Inicia o vídeo (muted) e fecha overlay
       try { await video.play(); } catch(e) {}
       overlay.classList.add('hidden');
 
+      // d) Se caiu no fallback, abre o marcador de teste em nova aba
       if (picked.isFallback) {
         setTimeout(() => window.open(FALLBACK_MARKER, '_blank'), 600);
       }
@@ -179,6 +149,7 @@
   </script>
 </body>
 </html>
+
 
 
 
