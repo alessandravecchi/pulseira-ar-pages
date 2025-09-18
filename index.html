@@ -7,48 +7,52 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   <style>
-    html, body { margin:0; height:100%; background:#000; font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    .ui { position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; background: radial-gradient(1200px 500px at 50% 100%, rgba(0,0,0,.55), rgba(0,0,0,.9)); z-index: 10; color: #fff; text-align: center; padding: 24px; }
+    html, body { margin:0; height:100%; background:#000; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    .ui { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      background: radial-gradient(1200px 500px at 50% 100%, rgba(0,0,0,.55), rgba(0,0,0,.9));
+      z-index:10; color:#fff; text-align:center; padding:24px; }
     .ui.hidden { display:none; }
-    .card { max-width: 420px; width: 92%; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 18px; backdrop-filter: blur(6px); box-shadow: 0 12px 30px rgba(0,0,0,.35); }
-    .title { font-weight: 700; font-size: 1.1rem; margin-bottom: 8px; }
-    .btn { margin-top: 12px; padding: 12px 16px; border: 0; border-radius: 12px; background: #21d4a3; color:#071b16; font-weight: 700; font-size:1rem; width: 100%; }
-    .hint { font-size: .9rem; opacity: .85; line-height: 1.35; }
-    .badge { display:inline-block; padding:4px 10px; border-radius: 999px; background:#0df; color:#002; font-weight:700; font-size:.8rem; margin-bottom:10px; }
-    .watermark { position: fixed; left: 12px; bottom: 10px; color:#9be8dc; font-weight:700; font-size:.9rem; letter-spacing:.2px; opacity:.9; z-index:5; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+    .card { max-width:420px; width:92%; background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:18px; backdrop-filter:blur(6px);
+      box-shadow:0 12px 30px rgba(0,0,0,.35); }
+    .title { font-weight:700; font-size:1.1rem; margin-bottom:8px; }
+    .btn { margin-top:12px; padding:12px 16px; border:0; border-radius:12px; background:#21d4a3; color:#071b16; font-weight:700; width:100%; }
+    .hint { font-size:.9rem; opacity:.85; line-height:1.35; }
+    .badge { display:inline-block; padding:4px 10px; border-radius:999px; background:#0df; color:#002; font-weight:700; font-size:.8rem; margin-bottom:10px; }
+    .watermark { position:fixed; left:12px; bottom:10px; color:#9be8dc; font-weight:700; font-size:.9rem; letter-spacing:.2px; opacity:.9; z-index:5; text-shadow:0 2px 10px rgba(0,0,0,.5); }
   </style>
 </head>
 <body>
   <div id="overlay" class="ui">
     <div class="card">
       <div class="badge">Sintonize nossa vibe 🎶</div>
-      <div class="title">Aponte a câmera para o marcador da pulseira</div>
-      <div class="hint">Toque em “Abrir câmera” para começar.<br/>Depois gere o seu targets/bracelet.mind e troque o caminho no index.</div>
+      <div class="title">Aponte a câmera para o marcador</div>
+      <div class="hint">
+        Toque em “Abrir câmera”. Se não pedir permissão, toque no cadeado da barra de endereço e <b>permita a câmera</b>.<br/>
+        Se o arquivo <code>targets/bracelet.mind</code> não existir, usamos um alvo de teste automaticamente.
+      </div>
       <button id="startBtn" class="btn">Abrir câmera</button>
     </div>
   </div>
   <div class="watermark">Marcela & Alana — 16</div>
 
-  <a-scene
-    mindar-image="imageTargetSrc: ./targets/bracelet.mind; filterMinCF:0.0001; filterBeta:0.001; maxTrack:1"
+  <!-- Cena sem atributo mindar-image; definimos via JS após verificar o .mind -->
+  <a-scene id="scene"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
-    renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, alpha:true"
+    renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true; alpha: true"
     embedded>
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-assets timeout="120000">
-      <!-- se o áudio não sair, toque na tela uma vez (política iOS/Android) -->
       <video id="clip" src="./assets/clipe.mp4" preload="auto" webkit-playsinline playsinline muted loop></video>
     </a-assets>
 
-    <a-entity mindar-image-target="targetIndex: 0">
-      <!-- 16:9, de pé, material flat e dupla face, levemente acima do alvo -->
-      <a-video
-        id="videoPlane"
+    <a-entity id="target" mindar-image-target="targetIndex: 0">
+      <!-- 16:9 horizontal, em pé, material flat e dupla face, levemente acima -->
+      <a-video id="videoPlane"
         src="#clip"
-        width="0.32"
-        height="0.18"
+        width="0.32" height="0.18"
         position="0 0 0.05"
         rotation="0 0 0"
         material="shader: flat; side: double">
@@ -60,13 +64,37 @@
     const overlay = document.getElementById('overlay');
     const startBtn = document.getElementById('startBtn');
     const video = document.getElementById('clip');
+    const scene = document.getElementById('scene');
+
+    const LOCAL_MIND = './targets/bracelet.mind';
+    const FALLBACK_MIND = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/samples/assets/card-example/card.mind';
+    const FALLBACK_MARKER = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/samples/assets/card-example/card.png';
+
+    async function chooseMind() {
+      try {
+        const res = await fetch(LOCAL_MIND, { method: 'HEAD', cache: 'no-store' });
+        if (res.ok) return { url: LOCAL_MIND, isFallback: false };
+      } catch (e) {}
+      return { url: FALLBACK_MIND, isFallback: true };
+    }
 
     startBtn.addEventListener('click', async () => {
-      try { await video.play(); } catch(e) {}
+      // começar mídia (política móvel)
+      try { await video.play(); } catch (e) {}
       overlay.classList.add('hidden');
+
+      // definir alvo (.mind) dinamicamente
+      const picked = await chooseMind();
+      scene.setAttribute('mindar-image',
+        `imageTargetSrc: ${picked.url}; filterMinCF:0.0001; filterBeta:0.001; maxTrack:1`);
+
+      if (picked.isFallback) {
+        // Se caiu no fallback, abre o marcador de teste em nova aba para você apontar
+        setTimeout(() => window.open(FALLBACK_MARKER, '_blank'), 600);
+      }
     });
 
-    // liberar áudio após 1 toque
+    // 1º toque desmuta áudio
     document.addEventListener('click', () => {
       if (video.muted) {
         video.muted = false;
@@ -76,4 +104,5 @@
   </script>
 </body>
 </html>
+
 
